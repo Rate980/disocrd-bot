@@ -1,5 +1,6 @@
 use serenity::all::{Http, Message, ReactionType, Result, User};
 
+#[allow(dead_code)]
 pub async fn get_reactions(
     http: impl AsRef<Http>,
     message: &Message,

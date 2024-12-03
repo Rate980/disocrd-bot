@@ -2,10 +2,9 @@ use std::collections::HashMap;
 use std::env;
 use std::hash::Hash;
 
-use discord_bot::message_data::{into_message_data, MessageData};
+use discord_bot::message_data::{EmojiData, JsonData, MessageData, UserData};
 use dotenvy::dotenv;
-use futures::future::join_all;
-use serenity::all::{ChannelId, GuildId, MessageId, PermissionOverwriteType, Result};
+use serenity::all::{ChannelId, EmojiId, GuildId, PermissionOverwriteType, Result, UserId};
 use serenity::{
     all::{CacheHttp, Context, EventHandler, GatewayIntents, GetMessages, GuildChannel, Message},
     async_trait, Client,
@@ -15,7 +14,6 @@ use serenity::{
 async fn get_messages<F: Fn(&Message) -> bool + Copy, F1: Fn(&Message) -> bool + Copy>(
     cache: impl CacheHttp,
     channel: GuildChannel,
-    start: Option<MessageId>,
     filter: Option<F>,
     stop: Option<F1>,
 ) -> Result<Vec<Message>> {
@@ -24,16 +22,13 @@ async fn get_messages<F: Fn(&Message) -> bool + Copy, F1: Fn(&Message) -> bool +
     if !channel.is_text_based() {
         return Ok(messages);
     }
-    let mut last_message_id = if let Some(start) = start {
-        start
-    } else {
-        match channel.last_message_id {
-            Some(x) => x,
-            None => return Ok(messages),
-        }
+    let mut last_message_id = match channel.last_message_id {
+        Some(x) => x,
+        None => return Ok(messages),
     };
-
-    messages.push(channel.message(&cache, last_message_id).await?);
+    if let Ok(last_message) = channel.message(&cache, last_message_id).await {
+        messages.push(last_message);
+    }
     loop {
         let get_messages = GetMessages::new().before(last_message_id).limit(100);
         let new_messages = channel.messages(&cache, get_messages).await?;
@@ -53,6 +48,7 @@ async fn get_messages<F: Fn(&Message) -> bool + Copy, F1: Fn(&Message) -> bool +
     }
 }
 
+#[allow(dead_code)]
 fn add_or_insert<K: Eq + Hash>(map: &mut HashMap<K, usize>, key: K) {
     map.entry(key).and_modify(|x| *x += 1).or_insert(1);
 }
@@ -77,19 +73,29 @@ struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {
-    async fn message(&self, ctx: Context, msg: Message) {
-        if msg.content == "!ping" {
-            if let Err(why) = msg.channel_id.say(&ctx.http, "Pong!").await {
-                println!("Error sending message: {:?}", why);
-            }
-        }
-    }
-
     async fn ready(&self, ctx: Context, _ready: serenity::model::gateway::Ready) {
         // let guild_id: GuildId = 1095933862657405038.into();
-        let guild_id = GuildId::new(1095933862657405038);
+        // let guild_id = GuildId::new(1095933862657405038);
+        let guild_id = GuildId::new(986597459323150376);
         let guild = guild_id.to_partial_guild(&ctx.http).await.unwrap();
         println!("Guild: {}", guild.name);
+
+        let members: HashMap<UserId, UserData> = guild
+            .members(&ctx.http, None, None)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|m| (m.user.id, m.into()))
+            .collect();
+
+        let emojis: HashMap<EmojiId, EmojiData> = guild
+            .emojis(&ctx.http)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|e| (e.id, e.into()))
+            .collect();
+
         let channels = guild.channels(&ctx.http).await.unwrap();
         let mut messages = HashMap::<ChannelId, Vec<MessageData>>::new();
         for (_, channel) in channels {
@@ -99,7 +105,6 @@ impl EventHandler for Handler {
             let message_dates = get_messages(
                 &ctx.http,
                 channel.clone(),
-                None,
                 None::<fn(&Message) -> bool>,
                 None::<fn(&Message) -> bool>,
             )
@@ -110,8 +115,10 @@ impl EventHandler for Handler {
             .collect();
             messages.insert(channel.id, message_dates);
         }
+
+        let data = JsonData::new(guild_id, members, emojis, messages);
         let mut file = std::fs::File::create("messages.json").unwrap();
-        serde_json::to_writer(&mut file, &messages).unwrap();
+        serde_json::to_writer(&mut file, &data).unwrap();
         println!("Done");
     }
 }
@@ -122,11 +129,30 @@ struct Handler2;
 #[async_trait]
 impl EventHandler for Handler2 {
     async fn ready(&self, ctx: Context, _ready: serenity::model::gateway::Ready) {
-        let guild_id = GuildId::new(524972650548953126);
-        let message_id = MessageId::new(1311985495781281872);
-        let channel_id = ChannelId::new(1222100257127665738);
-        let message = channel_id.message(&ctx.http, message_id).await.unwrap();
-        println!("{}", message.content);
+        let guild_id = GuildId::new(986597459323150376);
+        // let message_id = MessageId::new(1311985495781281872);
+        let channel_id = ChannelId::new(986616694325805086);
+        let channel = guild_id
+            .channels(&ctx.http)
+            .await
+            .unwrap()
+            .get(&channel_id)
+            .unwrap()
+            .clone();
+
+        let messages = get_messages(
+            &ctx.http,
+            channel.clone(),
+            None::<fn(&Message) -> bool>,
+            None::<fn(&Message) -> bool>,
+        )
+        .await;
+        println!("Messages: {:?}", messages);
+        if let Ok(messages) = messages {
+            messages.iter().for_each(|message| {
+                println!("Message: {}", message.content);
+            });
+        }
     }
 }
 
