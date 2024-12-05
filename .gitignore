@@ -1,3 +1,3 @@
 /target
 .env
-messages.json
+*messages.json

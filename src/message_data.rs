@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serenity::all::{
-    ChannelId, Emoji as SerenityEmoji, EmojiId, GuildId, Member, Message, MessageId, ReactionType,
-    UserId,
+    ChannelId, ChannelType, Emoji as SerenityEmoji, EmojiId, GuildChannel, GuildId, Member,
+    Message, MessageId, PermissionOverwrite, ReactionType, UserId,
 };
 
 #[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq, Clone)]
@@ -46,7 +46,7 @@ impl From<ReactionType> for Emoji {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[non_exhaustive]
 pub struct MessageData {
     pub channel_id: ChannelId,
@@ -86,13 +86,29 @@ impl From<Message> for MessageData {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[non_exhaustive]
 pub struct UserData {
-    user_id: UserId,
-    username: String,
-    display_name: String,
-    avatar_url: Option<String>,
+    pub user_id: UserId,
+    pub username: String,
+    pub display_name: String,
+    pub avatar_url: Option<String>,
+}
+
+impl UserData {
+    pub fn new(
+        user_id: UserId,
+        username: String,
+        display_name: String,
+        avatar_url: Option<String>,
+    ) -> Self {
+        Self {
+            user_id,
+            username,
+            display_name,
+            avatar_url,
+        }
+    }
 }
 
 impl From<Member> for UserData {
@@ -106,12 +122,12 @@ impl From<Member> for UserData {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[non_exhaustive]
 pub struct EmojiData {
-    emoji_id: EmojiId,
-    alias: String,
-    image_url: String,
+    pub emoji_id: EmojiId,
+    pub alias: String,
+    pub image_url: String,
 }
 
 impl From<SerenityEmoji> for EmojiData {
@@ -124,25 +140,64 @@ impl From<SerenityEmoji> for EmojiData {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[non_exhaustive]
+pub struct ChannelData {
+    pub channel_id: ChannelId,
+    pub name: String,
+    pub channel_type: ChannelType,
+    pub permission_overwrites: Vec<PermissionOverwrite>,
+}
+
+impl ChannelData {
+    pub fn new(
+        channel_id: ChannelId,
+        name: String,
+        channel_type: ChannelType,
+        permission_overwrites: Vec<PermissionOverwrite>,
+    ) -> Self {
+        Self {
+            channel_id,
+            name,
+            channel_type,
+            permission_overwrites,
+        }
+    }
+}
+
+impl From<GuildChannel> for ChannelData {
+    fn from(channel: GuildChannel) -> Self {
+        Self {
+            channel_id: channel.id,
+            channel_type: channel.kind,
+            permission_overwrites: channel.permission_overwrites,
+            name: channel.name,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[non_exhaustive]
 pub struct JsonData {
-    guild_id: GuildId,
-    members: HashMap<UserId, UserData>,
-    emojis: HashMap<EmojiId, EmojiData>,
-    messages: HashMap<ChannelId, Vec<MessageData>>,
+    pub guild_id: GuildId,
+    pub members: HashMap<UserId, UserData>,
+    pub channels: HashMap<ChannelId, ChannelData>,
+    pub emojis: HashMap<EmojiId, EmojiData>,
+    pub messages: HashMap<ChannelId, Vec<MessageData>>,
 }
 
 impl JsonData {
     pub fn new(
         guild_id: GuildId,
         members: HashMap<UserId, UserData>,
+        channels: HashMap<ChannelId, ChannelData>,
         emojis: HashMap<EmojiId, EmojiData>,
         messages: HashMap<ChannelId, Vec<MessageData>>,
     ) -> Self {
         Self {
             guild_id,
             members,
+            channels,
             emojis,
             messages,
         }
