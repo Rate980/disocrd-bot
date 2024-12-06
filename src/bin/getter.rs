@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::env;
-use std::hash::Hash;
 
 use discord_bot::message_data::{EmojiData, JsonData, MessageData, UserData};
 use dotenvy::dotenv;
@@ -53,11 +52,6 @@ async fn get_messages<F: Fn(&Message) -> bool + Copy, F1: Fn(&Message) -> bool +
             messages.push(message);
         }
     }
-}
-
-#[allow(dead_code)]
-fn add_or_insert<K: Eq + Hash>(map: &mut HashMap<K, usize>, key: K) {
-    map.entry(key).and_modify(|x| *x += 1).or_insert(1);
 }
 
 fn is_private_archive_channel(channel: &GuildChannel, guild_id: GuildId) -> bool {
@@ -166,6 +160,6 @@ async fn main() {
         .expect("Error creating client");
 
     if let Err(why) = client.start().await {
-        println!("Client error: {:?}", why);
+        eprintln!("An error occurred: {:?}", why);
     }
 }

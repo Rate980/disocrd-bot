@@ -3,9 +3,9 @@ use std::hash::Hash;
 
 use chrono::Datelike;
 use chrono_tz::Asia;
-use discord_bot::message_data::{ChannelData, Emoji, JsonData, MessageData, UserData};
+use discord_bot::message_data::{ChannelData, Emoji, EmojiData, JsonData, MessageData};
 use itertools::Itertools;
-use serenity::all::{ChannelId, UserId};
+use serenity::all::{ChannelId, EmojiId, UserId};
 
 const FIRST_YEAR: usize = 2021;
 const YEARS: usize = 4;
@@ -83,60 +83,93 @@ fn calc_emojis(
     });
 }
 
-fn calc_parentage<K: Eq + Hash + Copy>(sum: usize, counter: &Counter<K>) -> HashMap<K, f64> {
-    counter
-        .iter()
-        .map(|(key, value)| (*key, *value as f64 / sum as f64))
-        .collect()
-}
+// fn calc_parentage<K: Eq + Hash + Copy>(sum: usize, counter: &Counter<K>) -> HashMap<K, f64> {
+//     counter
+//         .iter()
+//         .map(|(key, value)| (*key, *value as f64 / sum as f64))
+//         .collect()
+// }
 
 fn extract_top10<K: Eq + Hash>(counter: Counter<K>) -> Vec<(K, usize)> {
     counter
         .into_iter()
         .sorted_by(|a, b| a.1.cmp(&b.1).reverse())
-        // .take(10)
+        .take(10)
         .collect()
 }
 
-fn print_users(
-    counter: &[(UserId, usize)],
-    members: &HashMap<UserId, UserData>,
+fn print_dates<V, I>(
+    counter: &[(I, usize)],
+    dates: &HashMap<I, V>,
     channels: &HashMap<ChannelId, ChannelData>,
-    par_channels: Option<&UserCounterPerChannel>,
+    par_channels: Option<&CounterPerChannel<I>>,
+) where
+    V: Default + Clone + std::fmt::Display,
+    I: Eq + Hash + Copy,
+{
+    counter.iter().enumerate().for_each(|(i, (id, count))| {
+        let data = dates.get(id).cloned().unwrap_or(Default::default());
+        print!("{} {}: {}", i + 1, data, count);
+        if let Some(par_channels) = par_channels {
+            let par_channel = par_channels.get(id).unwrap();
+            par_channel
+                .iter()
+                .sorted_by(|a, b| a.1.cmp(b.1).reverse())
+                .map(|(key, value)| (key, ((*value as f64 / *count as f64) * 100.0) as usize))
+                .for_each(|(channel_id, parent)| {
+                    let channel = channels
+                        .get(channel_id)
+                        .cloned()
+                        .unwrap_or(ChannelData::new(
+                            *channel_id,
+                            DEFAULT_NAME.to_string(),
+                            Default::default(),
+                            Default::default(),
+                        ));
+                    print!(" {}: {}%", channel.name, parent);
+                });
+        }
+        println!();
+    });
+}
+
+fn print_emojis(
+    counter: &[(Emoji, usize)],
+    emojis: &HashMap<EmojiId, EmojiData>,
+    channels: &HashMap<ChannelId, ChannelData>,
+    par_channels: Option<&EmojiCounterPerChannel>,
 ) {
-    counter
-        .iter()
-        .enumerate()
-        .for_each(|(i, (user_id, count))| {
-            let member = members.get(user_id).cloned().unwrap_or(UserData::new(
-                *user_id,
-                DEFAULT_NAME.to_string(),
-                DEFAULT_NAME.to_string(),
-                None,
-            ));
-            print!("{} {}: {}", i + 1, member.display_name, count);
-            if let Some(par_channels) = par_channels {
-                let par_channel = par_channels.get(user_id).unwrap();
-                par_channel
-                    .iter()
-                    .sorted_by(|a, b| a.1.cmp(b.1).reverse())
-                    .map(|(key, value)| (key, ((*value as f64 / *count as f64) * 100.0) as usize))
-                    .for_each(|(channel_id, parent)| {
-                        let channel =
-                            channels
-                                .get(channel_id)
-                                .cloned()
-                                .unwrap_or(ChannelData::new(
-                                    *channel_id,
-                                    DEFAULT_NAME.to_string(),
-                                    Default::default(),
-                                    Default::default(),
-                                ));
-                        print!(" {}: {}%", channel.name, parent);
-                    });
-            }
-            println!();
-        });
+    counter.iter().enumerate().for_each(|(i, (emoji, count))| {
+        let output = match emoji {
+            Emoji::Custom(id) => match emojis.get(id).cloned() {
+                Some(emoji_data) => emoji_data.to_string(),
+                None => "Unknown".to_string(),
+            },
+            Emoji::Unicode(name) => name.clone(),
+            _ => "Unknown".to_string(),
+        };
+        print!("{} {}: {}", i + 1, output, count);
+        if let Some(par_channels) = par_channels {
+            par_channels
+                .get(emoji)
+                .unwrap()
+                .iter()
+                .map(|(key, value)| (key, ((*value as f64 / *count as f64) * 100.0) as usize))
+                .for_each(|(channel_id, parent)| {
+                    let channel = channels
+                        .get(channel_id)
+                        .cloned()
+                        .unwrap_or(ChannelData::new(
+                            *channel_id,
+                            DEFAULT_NAME.to_string(),
+                            Default::default(),
+                            Default::default(),
+                        ));
+                    print!(" {}: {}%", channel.name, parent);
+                });
+        }
+        println!()
+    });
 }
 
 fn main() {
@@ -202,13 +235,15 @@ fn main() {
         let user_mention_sum = extract_top10(user_mention_sums[i].clone());
         let user_mention_sum_per_channels = &user_mention_sum_par_channels[i];
         let emoji_sum = extract_top10(emoji_sums[i].clone());
+        let emoji_sum_per_channels = &emoji_sum_per_channels[i];
+        let reaction_sum = extract_top10(reaction_sums[i].clone());
 
         println!();
         println!("Year: {}", FIRST_YEAR + i);
         println!("Messages: {}", message_sum);
         println!();
         println!("message count");
-        print_users(
+        print_dates(
             &user_message_sum,
             &members,
             &channels,
@@ -216,12 +251,23 @@ fn main() {
         );
         println!();
         println!("mention count");
-        print_users(
+        print_dates(
             &user_mention_sum,
             &members,
             &channels,
             Some(user_mention_sum_per_channels),
         );
+        println!();
+        println!("emoji count");
+        print_emojis(
+            &emoji_sum,
+            &data.emojis,
+            &channels,
+            Some(emoji_sum_per_channels),
+        );
+        println!();
+        println!("reaction count");
+        print_dates(&reaction_sum, &members, &channels, None);
         println!();
     }
 }

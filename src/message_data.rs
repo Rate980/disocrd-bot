@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter},
+};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -122,12 +125,34 @@ impl From<Member> for UserData {
     }
 }
 
+impl Display for UserData {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.display_name)
+    }
+}
+
+impl Default for UserData {
+    fn default() -> Self {
+        Self {
+            user_id: UserId::default(),
+            username: "Unknown".to_string(),
+            display_name: "Unknown".to_string(),
+            avatar_url: None,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[non_exhaustive]
 pub struct EmojiData {
     pub emoji_id: EmojiId,
     pub alias: String,
     pub image_url: String,
+}
+impl Display for EmojiData {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<:{}:{}>", self.alias, self.emoji_id)
+    }
 }
 
 impl From<SerenityEmoji> for EmojiData {
@@ -147,6 +172,12 @@ pub struct ChannelData {
     pub name: String,
     pub channel_type: ChannelType,
     pub permission_overwrites: Vec<PermissionOverwrite>,
+}
+
+impl Display for ChannelData {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
 }
 
 impl ChannelData {
