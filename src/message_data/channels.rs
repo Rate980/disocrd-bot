@@ -43,3 +43,14 @@ impl From<GuildChannel> for ChannelData {
         }
     }
 }
+
+impl Default for ChannelData {
+    fn default() -> Self {
+        Self {
+            channel_id: Default::default(),
+            name: "Unknown".to_string(),
+            channel_type: Default::default(),
+            permission_overwrites: Default::default(),
+        }
+    }
+}

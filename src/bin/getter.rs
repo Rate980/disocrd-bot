@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::env;
 
 use discord_bot::message_data::{EmojiData, JsonData, MessageData, UserData};
+use discord_bot::utils::filename;
 use dotenvy::dotenv;
 use serenity::all::{
     ChannelId, EmojiId, GuildId, MessageId, PermissionOverwriteType, Result, UserId,
@@ -117,7 +118,7 @@ impl EventHandler for Getter {
 
         let channels = channels.into_iter().map(|(id, c)| (id, c.into())).collect();
         let data = JsonData::new(guild_id, members, channels, emojis, messages);
-        let mut file = std::fs::File::create("outputs/messages.json").unwrap();
+        let mut file = std::fs::File::create(filename(guild_id)).unwrap();
         serde_json::to_writer(&mut file, &data).unwrap();
         println!("Done");
     }
