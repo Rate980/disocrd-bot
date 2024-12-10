@@ -11,11 +11,6 @@ use serenity::{
     async_trait, Client,
 };
 
-#[allow(non_upper_case_globals)]
-const _x128_GUILD_ID: u64 = 854616415323815936;
-#[allow(non_upper_case_globals)]
-const _IoT_GUILD_ID: u64 = 1095933862657405038;
-
 #[allow(dead_code)]
 async fn get_messages<F: Fn(&Message) -> bool + Copy, F1: Fn(&Message) -> bool + Copy>(
     cache: impl CacheHttp,
@@ -70,12 +65,14 @@ fn is_private_archive_channel(channel: &GuildChannel, guild_id: GuildId) -> bool
 }
 
 #[allow(dead_code)]
-struct Handler;
+struct Getter {
+    guild_id: GuildId,
+}
 
 #[async_trait]
-impl EventHandler for Handler {
+impl EventHandler for Getter {
     async fn ready(&self, ctx: Context, _ready: serenity::model::gateway::Ready) {
-        let guild_id: GuildId = _x128_GUILD_ID.into();
+        let guild_id: GuildId = self.guild_id;
         // let guild_id = GuildId::new(986597459323150376);
         //854616415323815936
         let guild = guild_id.to_partial_guild(&ctx.http).await.unwrap();
@@ -120,7 +117,7 @@ impl EventHandler for Handler {
 
         let channels = channels.into_iter().map(|(id, c)| (id, c.into())).collect();
         let data = JsonData::new(guild_id, members, channels, emojis, messages);
-        let mut file = std::fs::File::create("messages.json").unwrap();
+        let mut file = std::fs::File::create("outputs/messages.json").unwrap();
         serde_json::to_writer(&mut file, &data).unwrap();
         println!("Done");
     }
@@ -152,10 +149,11 @@ impl EventHandler for Handler2 {
 async fn main() {
     dotenv().unwrap();
     let token = env::var("TOKEN").unwrap();
+    let guild_id = env::var("GUILD_ID").unwrap().parse::<GuildId>().unwrap();
     println!("Token: {token}");
     let intents = GatewayIntents::all() - GatewayIntents::GUILD_MESSAGE_TYPING;
     let mut client = Client::builder(&token, intents)
-        .event_handler(Handler)
+        .event_handler(Getter { guild_id })
         .await
         .expect("Error creating client");
 

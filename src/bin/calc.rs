@@ -173,7 +173,7 @@ fn print_emojis(
 }
 
 fn main() {
-    let file = std::fs::File::open("messages.json").unwrap();
+    let file = std::fs::File::open("outputs/messages.json").unwrap();
     let data: JsonData = serde_json::from_reader(file).unwrap();
 
     let members = data.members;
