@@ -1,2 +1,2 @@
 pub mod message_data;
-mod utils;
+pub mod utils;
