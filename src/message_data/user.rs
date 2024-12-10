@@ -10,6 +10,8 @@ pub struct UserData {
     pub username: String,
     pub display_name: String,
     pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub is_bot: bool,
 }
 
 impl UserData {
@@ -18,12 +20,14 @@ impl UserData {
         username: String,
         display_name: String,
         avatar_url: Option<String>,
+        is_bot: bool,
     ) -> Self {
         Self {
             user_id,
             username,
             display_name,
             avatar_url,
+            is_bot,
         }
     }
 }
@@ -35,6 +39,7 @@ impl From<Member> for UserData {
             username: member.user.name.clone(),
             display_name: member.display_name().to_string(),
             avatar_url: member.user.avatar_url(),
+            is_bot: member.user.bot,
         }
     }
 }
@@ -52,6 +57,7 @@ impl Default for UserData {
             username: "Unknown".to_string(),
             display_name: "Unknown".to_string(),
             avatar_url: None,
+            is_bot: false,
         }
     }
 }
