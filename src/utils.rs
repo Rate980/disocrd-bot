@@ -1,4 +1,4 @@
-use serenity::all::{Http, Message, ReactionType, Result, User};
+use serenity::all::{GuildId, Http, Message, ReactionType, Result, User};
 
 #[allow(dead_code)]
 pub async fn get_reactions(
@@ -21,4 +21,9 @@ pub async fn get_reactions(
         last_user_id = Some(users.last().unwrap().id);
     }
     Ok(users)
+}
+
+#[inline]
+pub fn filename(guild_id: GuildId) -> String {
+    format!("outputs/{}.json", guild_id)
 }
